@@ -56,7 +56,7 @@ The analysis uses the **GlobalPatterns** dataset from the phyloseq package, whic
 
 You can view the complete analysis (including code and outputs) here:
 
-[Open HTML Report](https://nkiruka-cynthia.github.io/microbiome-learning-journey/Microbiome_project/scripts/01_exploration.html)
+[Open HTML Report](https://nkiruka-cynthia.github.io/microbiome-learning-journey/scripts/01_exploration.html)
 
 ---
 
