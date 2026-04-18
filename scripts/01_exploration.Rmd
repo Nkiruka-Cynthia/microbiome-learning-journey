@@ -1,0 +1,162 @@
+---
+title: "Global Patterns Analysis"
+output: html_document
+---
+
+## Dataset Overview
+
+This section explores the structure of the GlobalPatterns microbiome dataset, including the number of samples and how they are distributed across different environments.
+
+```{r setup, message=FALSE, warning=FALSE}
+# Load required libraries
+library(phyloseq)
+library(ggplot2)
+library(patchwork)
+library(vegan)
+```
+
+```{r}
+library(knitr)
+library(kableExtra)
+
+# Load dataset
+data("GlobalPatterns")
+
+# Assign to a working variable
+ps <- GlobalPatterns
+
+# Create the table
+sample_counts <- table(sample_data(ps)$SampleType)
+
+# Display with kable and white background
+kable(sample_counts, 
+      col.names = c("Sample Type", "Count"),
+      caption = "Number of Samples per Environment Type",
+      format = "html") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                position = "center") %>%
+  row_spec(0, bold = TRUE, background = "#2E86AB", color = "white") %>%
+  column_spec(1:2, background = "white", color = "black")
+```
+## Data Cleaning and Filtering
+
+To improve analysis quality, we remove low-abundance taxa that may introduce noise.
+
+```{r filtering}
+# Remove low-abundance taxa (total count <= 3)
+ps_filtered <- prune_taxa(taxa_sums(ps) > 3, ps)
+
+# Check how many taxa remain
+ntaxa(ps_filtered)
+```
+
+## Community Structure (PCoA)
+
+This analysis uses Principal Coordinates Analysis (PCoA) with Bray-Curtis distance to visualize differences in microbial community composition across sample types.
+
+```{r pcoa_plot}
+# Perform ordination using Bray-Curtis distance
+ordu <- ordinate(ps_filtered, method = "PCoA", distance = "bray")
+
+# Create PCoA plot
+p_A <- plot_ordination(ps_filtered, ordu, color = "SampleType") +
+  geom_point(size = 4, alpha = 0.8) +
+  theme_minimal() +
+  labs(title = "A: Microbial Community Structure (PCoA)")
+
+# Display plot
+p_A
+
+# Save plot
+ggsave("../results/A_pcoa.png", p_A,
+       width = 7, height = 5, dpi = 300)
+```
+
+## Alpha Diversity (Shannon Index)
+
+This analysis measures within-sample diversity using the Shannon diversity index, which accounts for both richness and evenness of microbial species.
+
+```{r diversity_plot}
+# Calculate Shannon diversity
+div <- estimate_richness(ps_filtered, measures = "Shannon")
+
+# Add sample type information
+div$SampleType <- sample_data(ps_filtered)$SampleType
+
+# Create boxplot
+p_B <- ggplot(div, aes(x = SampleType, y = Shannon, fill = SampleType)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "B: Alpha Diversity (Shannon Index)",
+       x = "Sample Type",
+       y = "Shannon Diversity Index") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "none")
+
+# Display plot
+p_B
+
+# Save plot
+ggsave("../results/B_diversity.png", p_B, width = 6, height = 5, dpi = 300)
+```
+## Taxonomic Composition (Phylum Level)
+
+This visualization shows the relative abundance of microbial taxa at the phylum level across different sample types.
+
+```{r taxa_barplot}
+# Transform counts to relative abundance
+ps_rel <- transform_sample_counts(ps_filtered, function(x) x / sum(x))
+
+# Optional: keep only top taxa for cleaner plot
+ps_top <- prune_taxa(names(sort(taxa_sums(ps_rel), decreasing = TRUE)[1:10]), ps_rel)
+
+# Create bar plot
+p_C <- plot_bar(ps_top, fill = "Phylum") +
+  facet_wrap(~SampleType, scales = "free_x") +
+  theme_minimal() +
+  labs(title = "C: Taxonomic Composition (Top 10 Phyla)",
+       x = "Samples",
+       y = "Relative Abundance") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank())
+
+# Display plot
+p_C
+
+# Save plot
+ggsave("../results/C_taxa_barplot.png", p_C, width = 10, height = 6, dpi = 300)
+```
+## Phylogenetic Tree 
+
+This visualization represents the evolutionary relationships between microbial taxa in the dataset.
+
+
+```{r phylogenetic_tree_chlamydiae}
+library(phyloseq)
+
+# Subset to Chlamydiae only (use your filtered dataset)
+ps_chl <- subset_taxa(ps_filtered, Phylum == "Chlamydiae")
+
+# Remove taxa with zero counts after subsetting
+ps_chl <- prune_taxa(taxa_sums(ps_chl) > 0, ps_chl)
+
+# Create phylogenetic tree plot
+p_D <- plot_tree(ps_chl, 
+                 color = "SampleType",
+                 shape = "Family",
+                 label.tips = "Genus",
+                 size = "abundance",
+                 plot.margin = 0.6) +
+  ggtitle("D: Phylogenetic Tree (Chlamydiae)")
+
+# Display plot
+p_D
+
+# Save plot
+ggsave("../results/D_phylogenetic_tree_chlamydiae.png", p_D,
+       width = 14, height = 10, dpi = 300)
+```
+
+
+
